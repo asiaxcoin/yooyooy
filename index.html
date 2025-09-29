@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Ridhi Coin Faucet</title>
+
+  <!-- Google Fonts for Inter font -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+
+  <!-- Ethers (UMD) and WalletConnect v2 (use newer version for better compatibility) -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <script src="https://unpkg.com/@walletconnect/ethereum-provider@2.10.0/dist/umd/index.min.js"></script>
+  <script src="https://unpkg.com/@walletconnect/modal@2.5.8/dist/umd/index.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0f1724;
+      --card: #0b1220;
+      --accent: #38d3f1;
+      --muted: #9aa7b2;
+      --text: #e6f0f6;
+      --error: #ff4d4d;
+      --success: #4dff4d;
+    }
+    * {
+      box-sizing: border-box;
+      font-family: 'Inter', system-ui, Arial, sans-serif;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: linear-gradient(180deg, #071224 0%, #0b1b2a 100%);
+      color: var(--text);
+    }
+    .app {
+      max-width: 420px;
+      margin: 30px auto;
+      padding: 18px;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 8px 30px rgba(2, 6, 23, 0.6);
+    }
+    header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo {
+      width: 64px;
+      height: 64px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      animation: spin 15s linear infinite;
+      transition: transform 0.2s;
+    }
+    .logo:hover {
+      transform: scale(1.05);
+    }
+    .logo img {
+      width: 100%;
+      height: 100%;
+      border-radius: 12px;
+      object-fit: cover;
+      loading: lazy;
+    }
+    .title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .subtitle {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .balance {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 14px;
+    }
+    .bal-left {
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .bal-amount {
+      font-weight: 700;
+    }
+    .coin-wrapper {
+      display: flex;
+      justify-content: center;
+      margin-top: 18px;
+    }
+    .coin {
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      position: relative;
+    }
+    .coin img {
+      width: 90%;
+      height: 90%;
+      border-radius: 50%;
+      object-fit: cover;
+      animation: heartbeat 1.3s infinite;
+      cursor: pointer;
+      will-change: transform;
+      loading: lazy;
+    }
+    .spark {
+      position: absolute;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--accent);
+      opacity: 0;
+      animation: sparkAnim 0.5s forwards;
+    }
+    @keyframes sparkAnim {
+      0% { transform: scale(0.5); opacity: 1; }
+      100% { transform: scale(2); opacity: 0; }
+    }
+    .result {
+      margin-top: 12px;
+      text-align: center;
+    }
+    .footer {
+      margin-top: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .connect {
+      padding: 10px;
+      border-radius: 10px;
+      border: 0;
+      background: linear-gradient(90deg, var(--accent), #02f823);
+      color: #000;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn {
+      padding: 12px;
+      border-radius: 12px;
+      border: 0;
+      background: #1352ff;
+      color: #fff;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .btn:disabled {
+      background: #555;
+      cursor: not-allowed;
+    }
+    .muted {
+      color: var(--muted);
+      font-size: 12px;}
+    .wallet-options {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .wallet-btn {
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid var(--muted);
+      background: transparent;
+      color: var(--text);
+      font-size: 14px;
+      cursor: pointer;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes heartbeat {
+      0% { transform: scale(1); }
+      25% { transform: scale(1.12); }
+      50% { transform: scale(1); }
+      75% { transform: scale(1.12); }
+      100% { transform: scale(1); }
+    }
+    .note {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+    .loading::after {
+      content: '';
+      display: inline-block;
+      margin-left: 8px;
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--text);
+      border-radius: 50%;
+      border-top-color: transparent;
+      animation: spin 1s linear infinite;
+    }
+    @media (max-width: 320px) {
+      .app { padding: 10px; }
+      .coin { width: 120px; height: 120px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .coin img, .logo { animation: none; }
+    }
+    button:focus, .wallet-btn:focus {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .error-msg {
+      color: var(--error);
+      font-size: 12px;
+      text-align: center;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="card">
+      <header>
+        <div class="logo" id="logoButton"><img src="asiax.png" alt="Coin Logo"></div>
+        <div>
+          <div class="title">𝐅𝐑𝐄𝐄 𝐑𝐈𝐃𝐇𝐈 𝐂𝐎𝐈𝐍𝐒</div>
+          <div class="subtitle">"Daily Free Rewards"</div>
+        </div>
+      </header>
+
+      <div class="balance">
+        <div>
+          <div class="bal-left">Your Balance</div>
+          <div class="bal-amount" id="balance">0 RI</div>
+        </div>
+        <div class="muted">Wallet: <span id="walletAddress">0x...</span></div>
+      </div>
+
+      <div class="coin-wrapper">
+        <div id="coin" class="coin"><img src="ridhi.png" alt="Ridhi Coin"></div>
+      </div>
+
+      <div class="result"><div id="status" class="info"></div></div>
+      <div id="errorMsg" class="error-msg"></div>
+
+      <div class="footer">
+        <button id="connectBtn" class="connect" aria-label="Connect to a cryptocurrency wallet">CONNECT WALLET</button>
+
+        <div id="walletOptions" class="wallet-options">
+          <button class="wallet-btn" data-wallet="metamask">MetaMask</button>
+          <button class="wallet-btn" data-wallet="walletconnect">WalletConnect (QR / Mobile)</button>
+          <button class="wallet-btn" data-wallet="safepal">SafePal</button>
+          <button class="wallet-btn" data-wallet="trust">Trust Wallet</button>
+        </div>
+
+        <div class="note">Tip: If you're in Telegram's in-app browser and wallet doesn't connect, try opening in your device's default browser (e.g., Chrome/Safari) for better deep linking. For WalletConnect, QR code will show if needed.</div>
+        <button id="claimBtn" class="btn" disabled title="Connect wallet to enable claim">CLAIM ONE RIDHI</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ====== CONFIG ======
+    const NETWORK = {
+      chainId: 137,
+      rpc: "https://polygon-rpc.com/",
+      name: "Polygon Mainnet"
+    };
+    const faucetAddress = "0x0d59E433E65a845cceE087679d485FC85962809b"; // Can be from env if needed
+    const faucetABI = [
+      "function claim() external",
+      "function canClaim(address) view returns (bool,uint256,uint256)",
+      "function totalClaimed(address) view returns (uint256)"
+    ];
+
+    // ====== STATE ======
+    let provider = null;
+    let signer = null;
+    let faucet = null;
+    let userAddress = null;
+    let wcProviderInstance = null;// ====== UI ELEMENTS ======
+    const connectBtn = document.getElementById("connectBtn");
+    const walletOptions = document.getElementById("walletOptions");
+    const walletAddressEl = document.getElementById("walletAddress");
+    const claimBtn = document.getElementById("claimBtn");
+    const statusEl = document.getElementById("status");
+    const balanceEl = document.getElementById("balance");
+    const errorMsgEl = document.getElementById("errorMsg");
+
+    // Detect if in Telegram in-app browser
+    function isTelegramWebView() {
+      return /Telegram/i.test(navigator.userAgent) && !/Chrome|Safari|Firefox/i.test(navigator.userAgent);
+    }
+
+    // Show wallet options when connect clicked
+    connectBtn.addEventListener("click", () => {
+      walletOptions.style.display = walletOptions.style.display === "flex" ? "none" : "flex";
+      if (isTelegramWebView()) {
+        errorMsgEl.innerText = "Note: Wallet connections in Telegram browser may require external browser for deep links.";
+      }
+    });
+
+    // Handle wallet button clicks
+    walletOptions.addEventListener("click", async (e) => {
+      if (e.target.classList.contains("wallet-btn")) {
+        const choice = e.target.dataset.wallet;
+        const validWallets = ["metamask", "walletconnect", "safepal", "trust"];
+        if (!validWallets.includes(choice)) {
+          showError("Invalid wallet selected.");
+          return;
+        }
+        walletOptions.style.display = "none";
+        await connectWallet(choice);
+      }
+    });
+
+    async function connectWallet(choice) {
+      const dappHost = window.location.hostname;
+      try {
+        if (choice === "metamask") {
+          if (window.ethereum) {
+            provider = new ethers.providers.Web3Provider(window.ethereum, "any");
+            await provider.send("eth_requestAccounts", []);
+            signer = provider.getSigner();
+            userAddress = await signer.getAddress();
+            await checkNetwork();
+            afterConnect();
+          } else {
+            window.location.href = "https://metamask.app.link/dapp/" + dappHost;
+          }
+        } else if (choice === "walletconnect") {
+          // Use WalletConnect v2 for better mobile/Telegram support
+          const EthereumProvider = window.WalletConnectEthereumProvider;
+          wcProviderInstance = await EthereumProvider.init({
+            projectId: "790c1c517d9d6a52ecbb8cce0e0a0a97", // Replace with your actual WalletConnect Project ID (get from walletconnect.com)
+            chains: [NETWORK.chainId],
+            showQrModal: true, // Force QR even on mobile for Telegram compatibility
+            metadata: {
+              name: "Ridhi Coin Faucet",
+              description: "Free Ridhi Coins",
+              url: window.location.href,
+              icons: ["https://your-icon-url.png"]
+            }
+          });
+          await wcProviderInstance.enable();
+          provider = new ethers.providers.Web3Provider(wcProviderInstance, "any");
+          signer = provider.getSigner();
+          userAddress = await signer.getAddress();
+          await checkNetwork();
+          wcProviderInstance.on("disconnect", () => resetUI());
+          afterConnect();
+        } else if (choice === "safepal") {
+          const url = window.location.href.replace(/^https?:\/\//, "");
+          window.location.href = "https://link.safepal.io/dapp/" + url;
+        } else if (choice === "trust") {
+          const url = encodeURIComponent(window.location.href);
+          window.location.href = "https://link.trustwallet.com/open_url?coin_id=137&url=" + url;
+        }
+      } catch (err) {
+        console.error("Connect error:", err);
+        showError("Wallet connection failed. Please try again or use external browser if in Telegram.");
+      }
+    }
+
+    async function checkNetwork() {const net = await provider.getNetwork();
+      if (net.chainId !== NETWORK.chainId) {
+        try {
+          await provider.send("wallet_switchEthereumChain", [{ chainId: "0x" + NETWORK.chainId.toString(16) }]);
+        } catch (switchError) {
+          if (switchError.code === 4902) {
+            await provider.send("wallet_addEthereumChain", [{
+              chainId: "0x" + NETWORK.chainId.toString(16),
+              chainName: NETWORK.name,
+              rpcUrls: [NETWORK.rpc]
+            }]);
+          } else {
+            throw switchError;
+          }
+        }
+      }
+    }
+
+    function afterConnect() {
+      const shortAddr = userAddress.slice(0, 6) + "..." + userAddress.slice(-4);
+      walletAddressEl.innerText = shortAddr;
+      faucet = new ethers.Contract(faucetAddress, faucetABI, signer);
+      checkStatus();
+      updateBalance();
+      // Listen for account changes
+      if (window.ethereum) {
+        window.ethereum.on("accountsChanged", (accounts) => {
+          if (accounts.length === 0) resetUI();
+        });
+      }
+    }
+
+    const debouncedCheckStatus = debounce(checkStatus, 1000);
+
+    async function checkStatus() {
+      try {
+        if (!faucet || !userAddress) return;
+        statusEl.classList.add("loading");
+        const res = await faucet.canClaim(userAddress);
+        statusEl.classList.remove("loading");
+        const canClaim = res[0];
+        const waitTime = res[1].toString();
+        const remaining = ethers.utils.formatUnits(res[2], 18);
+        let msg = "";
+        if (canClaim) {
+          msg = "✅ You can claim now.";
+          claimBtn.disabled = false;
+        } else {
+          msg = "⏳ Next claim available in " + waitTime + " sec.";
+          claimBtn.disabled = true;
+        }
+        msg += "\nRemaining claimable: " + remaining + " RIDHI";
+        statusEl.innerText = msg;
+      } catch (err) {
+        console.error("checkStatus error", err);
+        statusEl.innerText = "Error reading contract.";
+      }
+    }
+
+    async function updateBalance() {
+      try {
+        if (!faucet || !userAddress) return;
+        const claimed = await faucet.totalClaimed(userAddress);
+        balanceEl.innerText = ethers.utils.formatUnits(claimed, 18) + " RI";
+      } catch (err) {
+        console.error("updateBalance error", err);
+      }
+    }
+
+    async function claimTokens() {
+      try {
+        if (!faucet) {
+          showError("Connect wallet first.");
+          return;
+        }
+        claimBtn.disabled = true;
+        statusEl.innerText = "⏳ Claiming in progress...";
+        statusEl.classList.add("loading");
+        const tx = await faucet.claim();
+        await tx.wait();
+        statusEl.classList.remove("loading");
+        alert("🎉 Claim successful!");
+        debouncedCheckStatus();
+        updateBalance();
+      } catch (err) {
+        console.error("claim error", err);
+        statusEl.classList.remove("loading");
+        showError("Claim failed: " + (err.data?.message || err.message || "Unknown error"));
+        debouncedCheckStatus();
+      }
+    }
+
+    claimBtn.onclick = claimTokens;
+
+    function resetUI() {
+      walletAddressEl.innerText = "0x...";
+      claimBtn.disabled = true;
+      statusEl.innerText = "";
+      balanceEl.innerText = "0 RI";
+      errorMsgEl.innerText = "";
+      provider = null;
+      signer = null;
+      faucet = null;
+      userAddress = null;
+      if (wcProviderInstance) {
+        wcProviderInstance.disconnect().catch(err => console.warn("Disconnect error:", err));
+      }
+      try {
+        localStorage.removeItem("walletconnect");
+      } catch (e) { /* ignore */ }
+    }
+
+    function showError(msg) {
+      errorMsgEl.innerText = msg;
+      setTimeout(() => errorMsgEl.innerText = "", 5000);
+    }
+
+    // Debounce function
+    function debounce(func, wait) {
+      let timeout;
+      return (...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+      };
+    }// Coin sparkle
+    document.querySelector('.coin img').addEventListener('click', function(e) {
+      const spark = document.createElement('div');
+      spark.className = 'spark';
+      spark.style.left = (e.offsetX - 5) + 'px';
+      spark.style.top = (e.offsetY - 5) + 'px';
+      this.parentElement.appendChild(spark);
+      setTimeout(() => spark.remove(), 500);
+    });
+
+    // Logo redirect
+    document.getElementById("logoButton").onclick = () => window.open("index.html", "_self");
+
+    // Clear any old sessions on load
+    try {
+      localStorage.removeItem("walletconnect");
+    } catch (e) { /* ignore */ }
+  </script>
+</body>
+</html>
